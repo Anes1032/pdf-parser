@@ -49,11 +49,28 @@
                 <div class="card shadow">
                     <div class="card-header bg-primary text-white">
                         <h2 class="card-title text-center mb-0">
-                            <i class="fas fa-file-pdf me-2"></i>PDF Parser
+                            <i class="fas fa-file-pdf me-2"></i>Enhanced PDF Parser
                         </h2>
-                        <p class="text-center mb-0 mt-2">PDF文書をアップロードして解析結果をダウンロード</p>
+                        <p class="text-center mb-0 mt-2">PDF文書をアップロードして解析結果をダウンロード（VLM対応）</p>
                     </div>
                     <div class="card-body">
+                        <!-- パーサー選択 -->
+                        <div class="mb-4">
+                            <label class="form-label"><strong>解析タイプを選択:</strong></label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="parserType" id="enhancedParser" value="enhanced" checked>
+                                <label class="form-check-label" for="enhancedParser">
+                                    <strong>Enhanced Parser</strong>：本文と画像を分離してそれぞれをLLMで処理して合成
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="parserType" id="exparsoParser" value="exparso">
+                                <label class="form-check-label" for="exparsoParser">
+                                    <strong>Exparso Parser</strong>：本文処理後、画像が含まれる場合はページ全体をVLMで解析して、画像の説明も追加
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- アップロードエリア -->
                         <div id="uploadArea" class="upload-area">
                             <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
@@ -84,14 +101,18 @@
                                 <div class="card-body">
                                     <div class="row">
                                         <div class="col-md-6">
+                                            <p><strong>パーサータイプ:</strong> <span id="parserType"></span></p>
                                             <p><strong>ページ数:</strong> <span id="pageCount"></span></p>
                                             <p><strong>入力トークン:</strong> <span id="inputTokens"></span></p>
                                             <p><strong>出力トークン:</strong> <span id="outputTokens"></span></p>
+                                            <p><strong>画像含む:</strong> <span id="hasImages"></span></p>
                                         </div>
                                         <div class="col-md-6">
-                                            <button id="downloadBtn" class="btn btn-success btn-lg w-100">
-                                                <i class="fas fa-download me-2"></i>結果をダウンロード
-                                            </button>
+                                            <div class="d-grid gap-2">
+                                                <button id="downloadBtn" class="btn btn-success btn-lg">
+                                                    <i class="fas fa-download me-2"></i><span id="downloadBtnText">ダウンロード</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="mt-3">
@@ -153,6 +174,10 @@
         async function uploadFile(file) {
             const formData = new FormData();
             formData.append('file', file);
+            
+            // 選択されたパーサータイプを取得
+            const parserType = document.querySelector('input[name="parserType"]:checked').value;
+            formData.append('parser_type', parserType);
 
             // UIを更新
             showLoading();
@@ -187,6 +212,7 @@
             }
         });
 
+
         // UI表示関数
         function showLoading() {
             document.getElementById('loading').style.display = 'block';
@@ -199,11 +225,24 @@
         }
 
         function showResult(result) {
+            const parserTypeNames = {
+                'enhanced': 'Enhanced Parser',
+                'exparso': 'Exparso Parser'
+            };
+            document.getElementById('parserType').textContent = parserTypeNames[result.parser_type] || result.parser_type;
             document.getElementById('pageCount').textContent = result.page_count;
             document.getElementById('inputTokens').textContent = result.input_tokens;
             document.getElementById('outputTokens').textContent = result.output_tokens;
+            document.getElementById('hasImages').textContent = result.has_images ? 'はい' : 'いいえ';
             document.getElementById('preview').textContent = result.preview;
             document.getElementById('resultCard').style.display = 'block';
+            
+            // ダウンロードボタンのテキストを更新
+            if (result.parser_type === 'enhanced') {
+                document.getElementById('downloadBtnText').textContent = 'ZIPダウンロード（テキスト+画像）';
+            } else {
+                document.getElementById('downloadBtnText').textContent = 'テキストダウンロード';
+            }
         }
 
         function hideResult() {
